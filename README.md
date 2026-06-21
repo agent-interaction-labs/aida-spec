@@ -117,6 +117,36 @@ Every integration hand-wires its own identity solution (API keys, service accoun
 
 ---
 
+## Web Agent Identity
+
+AIDA's most immediately actionable extension. When an AI agent browses the web, websites have no standard way to know who it is. 32% of web traffic is automated, but agents use spoofable User-Agent strings. AIDA Web Agent Identity fixes this with one signed HTTP header.
+
+```http
+GET /api/data HTTP/1.1
+Host: example.com
+Aida-Agent: aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k
+Aida-Purpose: inference
+Signature-Input: sig1=("@method" "@path" "@authority" "content-digest" "aida-agent");keyid="aida:CcL7R8...";created=1719000000;alg="ed25519"
+Signature: sig1=:z3uTAiGz...:
+```
+
+**Agent side** (`@aida/agent`):
+```typescript
+import { createAgent, signRequest } from '@aida/agent';
+const agent = await createAgent({ controller: { email: 'alice@example.com' } });
+const req = await signRequest('https://api.example.com/data', { method: 'GET', agent });
+```
+
+**Server side** (`@aida/verify`):
+```typescript
+import { verifyAgent } from '@aida/verify';
+app.use(verifyAgent());  // One line. Every request now has req.aida.
+```
+
+Read the full specification: [Web Agent Identity](./docs/specification/draft/web-agent-identity.mdx)
+
+---
+
 ## Repository Structure
 
 ```

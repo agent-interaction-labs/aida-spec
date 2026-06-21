@@ -1,0 +1,251 @@
+# Web Agent Identity
+
+## Overview
+
+**AIDA Web Agent Identity** defines how AI agents cryptographically prove their identity to any web server. It is a profile of RFC 9421 (HTTP Message Signatures) using Ed25519 keys, with DNS-based key discovery.
+
+When an AI agent browses the web — accessing APIs, scraping data, making purchases — the receiving server currently has no standard way to determine:
+
+- **Is this an AI agent?** The User-Agent header is self-declared and spoofable.
+- **Which agent?** No cryptographic identity binding exists.
+- **On whose behalf?** No controller attribution.
+- **For what purpose?** Training crawler? Inference-time retrieval? Task execution?
+
+AIDA Web Agent Identity answers all four questions with a single signed HTTP header.
+
+## Problem Statement
+
+As of 2026, 32% of web traffic is automated. AI agents operate through multiple architectures — browser automation (Playwright, Puppeteer), direct API calls (MCP, function calling), and headless browsers (CUA) — yet none have a standard way to declare their identity. The consequences:
+
+- **Access control is impossible.** Websites cannot allowlist or blocklist specific agents.
+- **Payment is blocked.** HTTP 402 / x402 payment protocols cannot attribute charges without identity.
+- **Analytics are blind.** Site operators have no visibility into which agents access which resources.
+- **Terms of service are unenforceable.** Rate limits, robots.txt, and ToS require identity.
+- **Crawlers and inference agents are conflated.** Training crawlers somewhat identify themselves (ClaudeBot, GPTBot User-Agent strings), but inference-time task agents are completely anonymous.
+
+RFC 9421 (HTTP Message Signatures, February 2024) provides the cryptographic foundation — Ed25519 request signing — but no standard profile exists for AI agent identity. AIDA fills this gap.
+
+## Protocol Specification
+
+### 1. Agent Identity Setup
+
+An agent MUST:
+
+1. Generate an Ed25519 keypair using a cryptographically secure random number generator.
+2. Create an [AIDA Identity Document](../identity/index.mdx) containing its public key, controller binding, soul hash, and service endpoints.
+3. Self-sign the identity document with its private key.
+4. Publish the identity document via DNS TXT record at `_aida.<controller-domain>` and/or serve it at `/.well-known/aida`.
+
+### 2. HTTP Request Signing
+
+When making an HTTP request to a web server, the agent MUST:
+
+1. Add the `Aida-Agent` header with its AIDA URI.
+2. Optionally add the `Aida-Purpose` header declaring the request's purpose.
+3. Sign the request using RFC 9421 with the Ed25519 profile.
+4. Include `Signature-Input` and `Signature` headers.
+
+**Example signed request:**
+
+```http
+GET /api/data HTTP/1.1
+Host: example.com
+Aida-Agent: aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k
+Aida-Purpose: inference
+Content-Digest: sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:
+Signature-Input: sig1=("@method" "@path" "@authority" "content-digest" "aida-agent" "aida-purpose");keyid="aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k";created=1719000000;alg="ed25519"
+Signature: sig1=:z3uTAiGzSignatureValueHere...:
+Accept: application/json
+```
+
+**Covered components** (MUST be included in the signature base):
+
+| Component | Identifier | Required | Description |
+|---|---|---|---|
+| Method | `@method` | Yes | HTTP method (GET, POST, etc.) |
+| Path | `@path` | Yes | Request target path |
+| Authority | `@authority` | Yes | Host header value |
+| Content-Digest | `content-digest` | Yes | SHA-256 of request body |
+| Aida-Agent | `aida-agent` | Yes | Agent's AIDA URI |
+| Aida-Purpose | `aida-purpose` | If present | Purpose declaration |
+| Content-Length | `content-length` | If present | Body length |
+
+**Key ID format:** The `keyid` parameter MUST be the agent's AIDA URI (`aida:<base58-pubkey>`).
+
+**Algorithm:** The `alg` parameter MUST be `ed25519` (RFC 9421, Section 5.2).
+
+### 3. Aida-Agent Header
+
+```
+Aida-Agent: aida:<base58-encoded-ed25519-public-key>
+```
+
+The `Aida-Agent` header declares the agent's identity. The value is the agent's AIDA URI.
+
+**Format:** `aida:` followed by a base58-encoded 32-byte Ed25519 public key (43-44 characters).
+
+**Example:** `Aida-Agent: aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k`
+
+### 4. Aida-Purpose Header
+
+```
+Aida-Purpose: <purpose>
+```
+
+The `Aida-Purpose` header declares why the agent is making this request. This is OPTIONAL but RECOMMENDED.
+
+**Defined values:**
+
+| Value | Description |
+|---|---|
+| `inference` | Real-time retrieval for task execution (e.g., a user asked "what's the weather?") |
+| `task` | Autonomous task execution (e.g., purchasing, form submission) |
+| `crawler` | Training data collection or indexing |
+| `monitoring` | Health checks, uptime monitoring, status polling |
+
+Servers MAY use this header for:
+- Rate limiting per purpose
+- Content negotiation (serve Markdown to crawlers, JSON to inference agents)
+- Access control (block `crawler`, allow `inference`)
+- Analytics segmentation
+
+### 5. Key Discovery
+
+The web server MUST resolve the agent's public key to verify the signature.
+
+**Primary method — DNS TXT record:**
+
+```
+_aida.<controller-domain>  IN  TXT  "v=aida1;u=<identity-document-url>"
+```
+
+The server:
+1. Extracts the controller domain from the identity document (after resolving it).
+2. Queries `_aida.<controller-domain>` TXT record.
+3. Validates DNSSEC (if available).
+4. Follows the `u=` URL to fetch the full identity document.
+
+Alternatively, if the `keyid` in the signature contains enough information to construct a `.well-known` URL directly:
+
+**Fallback method — `.well-known/aida`:**
+
+```
+GET https://<domain>/.well-known/aida
+Accept: application/json
+
+→ 200 OK
+Content-Type: application/json
+
+{
+  "id": "aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k",
+  "publicKey": {
+    "type": "Ed25519VerificationKey2020",
+    "publicKeyBase58": "CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k"
+  },
+  ...
+}
+```
+
+The server SHOULD cache resolved identity documents per their `Cache-Control` headers or for a configurable TTL (default: 3600 seconds).
+
+### 6. Verification Algorithm
+
+The web server MUST perform the following steps for each request:
+
+```
+1. EXTRACT: Parse Aida-Agent header → agentId
+   └── If missing and verification is optional → proceed without agent identity
+   └── If missing and verification is required → 401 Unauthorized
+
+2. EXTRACT: Parse Signature-Input and Signature headers (RFC 9421)
+   └── If missing → 401 Unauthorized
+
+3. VALIDATE: Check signature creation timestamp
+   └── If |now - created| > clockSkew → 401 "Signature expired"
+   └── Default clockSkew: 300 seconds
+
+4. DISCOVER: Resolve agent's public key
+   a. Extract keyid from Signature-Input
+   b. Parse aida:<pubkey> → base58 public key
+   └── If unable to parse → 401 "Invalid key identifier"
+
+5. DISCOVER: Resolve agent's identity document (for controller binding)
+   a. Check local cache (TTL: 3600s)
+   b. If cache miss, resolve DNS _aida.<controller-domain> TXT
+   c. If DNS unavailable, fall back to GET /.well-known/aida on the agent's domain
+   d. If all methods fail → 401 "Identity document not found"
+
+6. VERIFY: Validate identity document
+   a. Check Ed25519 self-signature
+   b. Check created/expires timestamps
+   c. Check soul hash if present
+   └── Any failure → 401 "Identity verification failed"
+
+7. VERIFY: Validate RFC 9421 signature
+   a. Reconstruct signature base from covered components
+   b. Verify Ed25519 signature using the resolved public key
+   └── Signature mismatch → 401 "Signature verification failed"
+
+8. EXTRACT: Parse Aida-Purpose header (optional)
+   └── Validate against allowed purposes (if configured)
+
+9. AUTHORIZE: Check controller binding (optional)
+   a. If allowedControllers is configured, match against identity document
+   └── No match → 403 Forbidden
+
+10. ATTACH: Populate req.aida with verified agent information
+    └── Proceed to route handler
+```
+
+### 7. Error Responses
+
+| Status | Condition | Response |
+|---|---|---|
+| 401 | Missing Aida-Agent header (required mode) | `{"error":"agent_identity_required","message":"An Aida-Agent header is required for this resource"}` |
+| 401 | Missing or invalid signature | `{"error":"signature_required","message":"RFC 9421 Signature and Signature-Input headers are required"}` |
+| 401 | Signature expired | `{"error":"signature_expired","message":"The request signature has expired. Clock skew tolerance: N seconds"}` |
+| 401 | Identity document not found | `{"error":"identity_not_found","message":"Could not resolve identity document for keyid: ..."}` |
+| 401 | Identity verification failed | `{"error":"identity_invalid","message":"Identity document failed verification: <reason>"}` |
+| 401 | Signature verification failed | `{"error":"signature_invalid","message":"The request signature does not match the claimed identity"}` |
+| 403 | Controller not authorized | `{"error":"controller_forbidden","message":"Agent controller is not in the allowed list"}` |
+
+### 8. Security Considerations
+
+#### Replay Attacks
+
+The `created` parameter in the signature base binds the signature to a specific timestamp. Verifiers MUST reject signatures with timestamps outside the configured clock skew window (default: 300 seconds). Additionally, verifiers SHOULD track seen nonces within the window to detect replays.
+
+#### DNS Poisoning
+
+DNS-based key discovery is vulnerable to DNS spoofing. Verifiers SHOULD require DNSSEC validation when available and fall back to the `.well-known/aida` HTTPS endpoint (which provides TLS-anchored trust) when DNSSEC is unavailable.
+
+#### Key Compromise
+
+If an agent's Ed25519 private key is compromised, the attacker can sign requests as that agent. Agents MUST support key rotation (publishing a new identity document with a rotation proof signed by the old key) and SHOULD monitor for unauthorized use of their identity.
+
+#### Privacy
+
+The `Aida-Agent` header reveals the agent's identity to every server it contacts. Agents SHOULD consider using ephemeral identities for sensitive requests and rotating keys periodically. The `Aida-Purpose` header MAY be omitted to reduce information disclosure.
+
+#### Denial of Service
+
+Verifying every request involves DNS resolution and cryptographic signature verification. Servers SHOULD cache resolved identity documents and verification results. High-traffic servers SHOULD consider asynchronous verification or dedicated verification services.
+
+### 9. Relationship to Other Standards
+
+| Standard | Relationship |
+|---|---|
+| **RFC 9421** (HTTP Message Signatures) | AIDA uses this for request signing. AIDA is a profile, not a replacement. |
+| **RFC 7517** (JSON Web Key) | Identity documents MAY include JWK representations of Ed25519 keys for compatibility. |
+| **AID** (draft-nemethi-aid-*) | AID defines DNS `_agent` TXT records for endpoint discovery. AIDA uses the same pattern at `_aida` and is compatible. |
+| **PACT** (draft-valverde-oauth-pact-*) | PACT defines OAuth 2.1 delegation for agents. AIDA's identity layer is complementary — PACT can reference AIDA identities in its grants. |
+| **W3C Verifiable Credentials** | AIDA identity documents use JSON-LD with Ed25519 proofs, compatible with the VC data model. |
+| **MCP** (Model Context Protocol) | AIDA identities can be used as the authentication layer for MCP's HTTP transport. |
+
+### 10. Reference Implementation
+
+Reference implementations are available:
+- **Agent SDK:** `@aida/agent` — TypeScript library for agents to sign requests
+- **Verify SDK:** `@aida/verify` — TypeScript middleware for web servers to verify agent identity
+
+Both are Apache-2.0 licensed and available at [github.com/agent-interaction-labs](https://github.com/agent-interaction-labs).

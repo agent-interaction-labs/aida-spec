@@ -55,7 +55,13 @@ AIDA supports multiple verification strategies:
 
 Multiple profiles can be specified. At least one must succeed for a document to be considered verified.
 
-### Relationship to Other Protocols
+### Extensions
+
+AIDA defines extension specifications for specific use cases:
+
+- **[Web Agent Identity](./web-agent-identity.mdx)** — How agents cryptographically prove their identity to any web server using RFC 9421 HTTP Message Signatures. This is the most immediately actionable AIDA extension, addressing the gap where 32% of web traffic is automated but no standard exists for agent identity on the web.
+
+## Relationship to Other Protocols
 
 - **AIP** (Agent Interaction Protocol): AIP messages carry AIDA identity claims (`aida:` URIs in tool call metadata). AIDA receipts can attest to AIP interactions.
 
