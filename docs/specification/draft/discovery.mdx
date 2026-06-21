@@ -1,0 +1,122 @@
+# Discovery
+
+## Overview
+
+AIDA agents are discovered via two complementary mechanisms: DNS TXT records and the `.well-known/aida` endpoint. Both return the agent's AIDA URI and (optionally) a URL where the full Identity Document can be retrieved.
+
+## DNS TXT Record
+
+### Format
+
+Agents SHOULD publish a DNS TXT record at `_aida.<domain>`:
+
+```
+_aida.example.com.  IN  TXT  "v=aida1;u=https://agents.example.com/alice-assistant"
+```
+
+**Field syntax** (semicolon-delimited key=value pairs):
+
+| Key | Required | Description | Example |
+|---|---|---|---|
+| `v` | Yes | Protocol version. Currently `aida1`. | `v=aida1` |
+| `u` | No | URL where the Identity Document can be fetched. | `u=https://agents.example.com/alice-assistant` |
+
+If `u` is omitted, the verifier fetches from `/.well-known/aida` on the same domain.
+
+### DNSSEC
+
+DNS-based discovery SHOULD use DNSSEC. Without DNSSEC, an attacker can spoof the TXT record and redirect verifiers to a malicious identity document.
+
+Verifiers MUST check DNSSEC validation status when using DNS discovery. If DNSSEC is unavailable, verifiers SHOULD fall back to the `.well-known` endpoint with TLS verification.
+
+### Multiple Agents on One Domain
+
+A domain MAY host multiple agents. Use different subdomains or distinct TXT records:
+
+```
+; Option A: Subdomains
+_aida.alice.example.com  TXT  "v=aida1;u=https://agents.example.com/alice"
+_aida.bob.example.com    TXT  "v=aida1;u=https://agents.example.com/bob"
+
+; Option B: Multiple records (DNS round-robin)
+_aida.example.com        TXT  "v=aida1;u=https://agents.example.com/alice"
+_aida.example.com        TXT  "v=aida1;u=https://agents.example.com/bob"
+```
+
+## Well-Known Endpoint
+
+### Format
+
+Agents MUST expose an HTTPS endpoint at `/.well-known/aida` that returns the full Identity Document as JSON:
+
+```
+GET https://agents.example.com/.well-known/aida
+Accept: application/json
+
+→ 200 OK
+Content-Type: application/json
+
+{
+  "@context": ["https://aida-spec.dev/contexts/identity/v1"],
+  "id": "aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k",
+  ...
+}
+```
+
+### Requirements
+
+- MUST be served over HTTPS (TLS 1.3 recommended)
+- MUST return `Content-Type: application/json`
+- MUST NOT redirect (the verifier follows the URL in the DNS TXT record, not redirect chains)
+- SHOULD set `Cache-Control: no-store` to prevent caching of identity documents
+- Response body MUST NOT exceed 64KB
+- Response time SHOULD be under 2 seconds
+
+### CORS
+
+The well-known endpoint SHOULD support CORS for browser-based verifiers:
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, OPTIONS
+```
+
+## Discovery Flow
+
+```
+Verifier wants to verify agent@example.com:
+
+1. DNS lookup: _aida.example.com TXT
+   ├─ Found → extract AIDA URI + Identity Document URL
+   │          → verify DNSSEC
+   │          → fetch Identity Document
+   └─ Not found → fall back to:
+       GET https://example.com/.well-known/aida
+       → verify TLS certificate
+       → parse Identity Document
+
+2. Verify Identity Document:
+   ├─ Check signature (Ed25519)
+   ├─ Check timestamps (not expired, within clock skew)
+   ├─ Check soul hash
+   └─ Check verification profile (local, DNS, ledger, ZK)
+
+3. Agent identity verified ✓
+```
+
+## Protocol Negotiation
+
+Once an agent's identity is verified, the verifier inspects the `endpoints` array in the Identity Document to determine which protocols the agent supports and at which URLs.
+
+The verifier selects the most appropriate protocol based on its own capabilities and the agent's endpoints. This protocol-agnostic approach follows the AID discovery model.
+
+## Relationship to AID
+
+AIDA discovery is designed to be compatible with the AID (Agent Identity & Discovery) protocol by agentcommunity.org:
+
+- AIDA uses the same DNS TXT record pattern (`_aida` vs AID's `_agent`)
+- AIDA supports the same `v=` and `u=` key format
+- AIDA adds the `.well-known/aida` endpoint as a fallback
+- AIDA identity documents contain the same endpoint/protocol negotiation model
+
+An agent CAN support both AID and AIDA discovery simultaneously by publishing both `_agent` and `_aida` DNS records.

@@ -1,0 +1,153 @@
+# Layer 3: Attestation
+
+## Overview
+
+AIDA Attestation answers the question: **"What did this agent actually do?"**
+
+An AIDA Attestation Receipt is a W3C Verifiable Credential that records an agent action, signed by the agent's Ed25519 key, and hash-linked to form a tamper-evident audit trail.
+
+## Attestation Receipt
+
+### Format
+
+AIDA attestation receipts are W3C Verifiable Credentials. They use:
+- `@context`: Standard VC context + AIDA attestation context
+- `type`: `["VerifiableCredential", "AidaAttestationReceipt"]`
+- `issuer`: The agent's AIDA URI
+- `credentialSubject`: The action being attested
+- `proof`: Ed25519 signature
+
+### Action Types
+
+| Type | Description |
+|---|---|
+| `tool_call` | An agent invoked a tool (e.g., `read_file`, `terminal`, `browser_navigate`) |
+| `delegation` | An agent issued a capability grant to another agent |
+| `identity_claim` | An agent made a claim about its identity |
+| `key_rotation` | An agent rotated its Ed25519 key |
+| `capability_exercise` | An agent exercised a delegated capability |
+
+### Tool Call Receipts
+
+For `tool_call` actions, the receipt captures:
+- `tool` — the tool name
+- `toolParameters` — the parameters passed (MAY be redacted for privacy)
+- `toolResult` — the result summary (MAY be redacted for privacy)
+- `resourceUri` — the resource targeted
+- `riskLevel` — assessed risk level (`low`, `medium`, `high`)
+- `timestamp` — when the action occurred
+- `duration` — how long the action took (milliseconds)
+
+### Risk Level Taxonomy
+
+The risk level of a tool call is determined by an action taxonomy. A reference taxonomy:
+
+| Risk Level | Tool Examples |
+|---|---|
+| `low` | `read_file`, `search_files`, `memory` (add), `session_search` |
+| `medium` | `write_file`, `patch`, `terminal` (read-only), `browser_navigate` |
+| `high` | `terminal` (write/install), `write_file` (config), `cronjob` (create), `send_message` |
+
+Implementations MAY define their own taxonomy. The taxonomy SHOULD be published and verifiable.
+
+## Hash-Chained Audit Trail
+
+### Chain Construction
+
+Each receipt contains a `previousReceipt` field — the SHA-256 hash of the previous receipt in the chain:
+
+```
+Receipt N: { ..., previousReceipt: SHA-256(Receipt N-1) }
+Receipt N-1: { ..., previousReceipt: SHA-256(Receipt N-2) }
+...
+Receipt 1: { ..., previousReceipt: null }
+```
+
+This creates a cryptographically tamper-evident chain:
+- Inserting a receipt would break the hash chain
+- Removing a receipt would leave a gap
+- Modifying a receipt would change its hash, breaking the next link
+
+### Chain Verification
+
+To verify a receipt chain:
+1. Start from the first receipt (`previousReceipt: null`)
+2. For each subsequent receipt, compute `SHA-256(previous_receipt_json)` and compare with `previousReceipt`
+3. Verify each receipt's Ed25519 signature
+4. Verify the agent's identity document is valid at the time of each receipt
+
+If all steps pass, the chain is verified. Any failure indicates tampering.
+
+### Receipt Chain Structure
+
+```
+AidaReceiptChain {
+  agent: AidaUri,
+  receipts: AidaAttestationReceipt[],
+  verified: boolean,
+  verificationErrors?: string[]
+}
+```
+
+## W3C Verifiable Credential Compliance
+
+AIDA attestation receipts comply with the W3C Verifiable Credentials Data Model v1.1:
+
+- **Credential format:** JSON-LD with `@context`
+- **Proof format:** Linked Data Proof (Ed25519Signature2020)
+- **Issuer:** Identified by AIDA URI
+- **Subject:** The agent itself (self-issued credential)
+- **Status:** Revocation status via `credentialStatus` (optional)
+
+This enables interoperability with existing VC verifiers, wallets, and registries.
+
+## Attestation Storage
+
+### Local Storage (Obsigna-inspired)
+
+For local, offline attestation:
+- Receipts stored in SQLite database
+- Daemon process holds the signing key
+- AF_UNIX socket for IPC between agent and daemon
+- Query interface: `list_receipts(session_id)`, `verify_chain(session_id)`
+
+
+
+### Ledger Storage (optional)
+
+For on-chain attestation:
+- Receipts published to a blockchain (Ethereum, Solana, Stellar, etc.)
+- Receipt hashes stored on-chain; full receipts stored off-chain (IPFS, Arweave)
+- Smart contract verifies receipt chains and exposes verification functions
+
+### Zero-Knowledge Attestation (optional)
+
+For privacy-preserving attestation (inspired by AEGIS ZK):
+- Attestation receipts are proved via ZK circuits
+- Verifiers receive ZK proofs without seeing the underlying action data
+- On-chain verifier contract checks proofs without revealing tool calls
+- Useful for compliance (prove audit trail exists without exposing all actions)
+
+## Trust Scoring (Extension)
+
+AIDA core defines the attestation receipt format but does not mandate a trust scoring algorithm. Implementations MAY add trust scoring as an extension:
+
+**PACT-inspired behavioral model:**
+- Approved action → trust +2
+- Edited action → trust +1
+- Rejected action → trust -5
+- Pattern detection: after N approvals + 0 rejections in a scope, auto-approve
+
+**Reputation graph model:**
+- Web-of-trust between agents
+- Transitive trust: if A trusts B and B trusts C, A may trust C
+- Reputation computed locally, not centrally
+
+Trust scoring is an extension point — AIDA receipts provide the evidence; trust models interpret it.
+
+## Security Considerations
+
+- **Chain breaks:** If a receipt is lost or corrupted, the chain breaks. Implementations SHOULD maintain redundant storage and allow chain repair via re-issuance.
+- **Signature key compromise:** If an agent's Ed25519 key is compromised, all receipts signed by that key become unreliable. Implementations SHOULD support key rotation with attestation of the rotation event.
+- **Privacy:** Receipts may contain sensitive information (tool parameters, results). Implementations SHOULD support redaction (hash commitments to redacted fields) and ZK-based selective disclosure.
+- **Chain length:** Long-running agents may produce millions of receipts. Implementations SHOULD support chain checkpointing — periodic snapshots that anchor the chain to reduce verification cost.

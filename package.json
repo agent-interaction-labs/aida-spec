@@ -1,0 +1,15 @@
+{
+  "name": "aida-spec",
+  "version": "0.1.0",
+  "description": "Agent Identity and Delegation Architecture — specification and JSON Schema",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "validate": "ajv validate -s schema/draft/schema.json -d schema/draft/examples/*.json",
+    "check": "tsc --noEmit schema/draft/schema.ts"
+  },
+  "devDependencies": {
+    "ajv-cli": "^5.0.0",
+    "typescript": "^5.0.0"
+  }
+}

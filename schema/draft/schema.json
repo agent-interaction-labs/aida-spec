@@ -1,0 +1,500 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aida-spec.dev/schema/draft/schema.json",
+  "title": "Agent Identity and Delegation Architecture (AIDA)",
+  "description": "Canonical JSON Schema for the Agent Identity and Delegation Architecture. Defines identity documents, capability grants, and attestation receipts for AI agents.",
+  "type": "object",
+
+  "$defs": {
+    "AidaUri": {
+      "description": "An AIDA agent identifier: aida:<base58-encoded-ed25519-public-key>. The URI scheme is 'aida'. The authority is a base58-encoded 32-byte Ed25519 public key.",
+      "type": "string",
+      "pattern": "^aida:[1-9A-HJ-NP-Za-km-z]{43,44}$"
+    },
+
+    "Ed25519VerificationKey": {
+      "description": "An Ed25519 public key for cryptographic verification.",
+      "type": "object",
+      "required": ["type", "publicKeyBase58"],
+      "properties": {
+        "type": {
+          "const": "Ed25519VerificationKey2020"
+        },
+        "publicKeyBase58": {
+          "type": "string",
+          "pattern": "^[1-9A-HJ-NP-Za-km-z]{43,44}$",
+          "description": "Base58-encoded 32-byte Ed25519 public key. The same value appears in the AidaUri."
+        }
+      }
+    },
+
+    "Ed25519Signature": {
+      "description": "An Ed25519 cryptographic signature proof.",
+      "type": "object",
+      "required": ["type", "created", "proofValue", "verificationMethod"],
+      "properties": {
+        "type": {
+          "const": "Ed25519Signature2020"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the signature was created."
+        },
+        "proofValue": {
+          "type": "string",
+          "description": "Base58-encoded Ed25519 signature over the canonicalized document."
+        },
+        "verificationMethod": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI identifying the public key used for verification. Typically an AidaUri or a DNS-based key URL."
+        }
+      }
+    },
+
+    "AidaEndpoint": {
+      "description": "A service endpoint where the agent can be reached. References the AID discovery model.",
+      "type": "object",
+      "required": ["url", "protocol"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The endpoint URL."
+        },
+        "protocol": {
+          "type": "string",
+          "enum": ["mcp", "aip", "a2a", "openapi", "grpc", "graphql", "websocket"],
+          "description": "The protocol spoken at this endpoint. References AID's protocol negotiation model."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional protocol-specific metadata (e.g., MCP server name, OpenAPI spec URL).",
+          "additionalProperties": true
+        }
+      }
+    },
+
+    "SoulHash": {
+      "description": "A deterministic integrity fingerprint of the agent's identity files. Computed as SHA-256 of sorted file hashes. Detects soul-rewriting attacks .",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "examples": ["sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"]
+    },
+
+    "HashLink": {
+      "description": "A SHA-256 hash linking to the previous item in a chain. Used in attestation receipt chains and delegation chains.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+
+    "Controller": {
+      "description": "The human or organizational entity that controls this agent identity. At least one binding is required.",
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "uri",
+          "description": "W3C Decentralized Identifier of the controller."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address of the controller."
+        },
+        "dns": {
+          "type": "string",
+          "format": "hostname",
+          "description": "DNS domain owned by the controller. Enables DNS-based verification."
+        },
+        "oauth": {
+          "type": "string",
+          "format": "uri",
+          "description": "OAuth 2.0 / OIDC issuer URL for delegated identity verification."
+        }
+      }
+    },
+
+    "CapabilityConstraint": {
+      "description": "Constraints on a delegated capability. ",
+      "type": "object",
+      "properties": {
+        "maxCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of times this capability can be exercised."
+        },
+        "timeWindow": {
+          "type": "string",
+          "description": "ISO 8601 duration. The capability is only valid within this time window from issuance.",
+          "examples": ["PT1H", "P1D", "PT30M"]
+        },
+        "maxValue": {
+          "type": "number",
+          "description": "Maximum monetary value (in the asset's smallest unit, e.g., USDC wei) for payment-gated capabilities."
+        },
+        "allowedDomains": {
+          "type": "array",
+          "items": {"type": "string", "format": "hostname"},
+          "description": "List of domains this capability is restricted to.",
+          "minItems": 1
+        },
+        "ipAllowlist": {
+          "type": "array",
+          "items": {"type": "string", "format": "ipv4"},
+          "description": "IPv4 addresses allowed to exercise this capability."
+        },
+        "requireConsent": {
+          "type": "boolean",
+          "description": "If true, human consent is required via HITL before each exercise of this capability.",
+          "default": false
+        }
+      }
+    },
+
+    "Capability": {
+      "description": "A single delegated capability — an action the subject is authorized to perform on a resource.",
+      "type": "object",
+      "required": ["action", "resource"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "The permitted action (e.g., 'read', 'write', 'execute', 'deploy', 'transfer').",
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "description": "URI template identifying the resource scope (e.g., 'files:/home/alice/*', 'api:github.com/repos/*').",
+          "minLength": 1
+        },
+        "constraints": {
+          "$ref": "#/$defs/CapabilityConstraint"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "The inherent risk level of this capability. Drives consent routing decisions.",
+          "default": "low"
+        }
+      }
+    },
+
+    "VerificationProfile": {
+      "description": "How to verify an AIDA document. Multiple profiles can be specified; at least one must succeed.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["local", "dns", "ledger", "zk"],
+          "description": "Verification profile type."
+        },
+        "local": {
+          "type": "object",
+          "description": "Local Ed25519 signature verification. No external dependencies.",
+          "properties": {
+            "publicKeyBase58": {
+              "type": "string",
+              "pattern": "^[1-9A-HJ-NP-Za-km-z]{43,44}$"
+            }
+          }
+        },
+        "dns": {
+          "type": "object",
+          "description": "DNS-based verification via _aida TXT record and DNSSEC. References AID discovery.",
+          "properties": {
+            "domain": {"type": "string", "format": "hostname"},
+            "requireDnssec": {"type": "boolean", "default": true}
+          }
+        },
+        "ledger": {
+          "type": "object",
+          "description": "On-chain verification. Blockchain-agnostic — specify the chain and contract.",
+          "properties": {
+            "chainId": {"type": "integer"},
+            "chainName": {"type": "string", "examples": ["ethereum", "base", "solana", "stellar"]},
+            "contractAddress": {"type": "string"},
+            "verifierFunction": {"type": "string"}
+          }
+        },
+        "zk": {
+          "type": "object",
+          "description": "Zero-knowledge verification. The verifier receives a ZK proof without seeing the underlying data. ",
+          "properties": {
+            "provingSystem": {"type": "string", "examples": ["groth16", "plonk", "ultraplonk"]},
+            "circuitHash": {"type": "string"},
+            "verifierContract": {"type": "string"}
+          }
+        }
+      }
+    },
+
+    "AidaIdentityDocument": {
+      "description": "Layer 1: An AIDA Identity Document. The root of trust for an agent identity. Self-signed by the agent's Ed25519 key.",
+      "type": "object",
+      "required": ["id", "controller", "publicKey", "created"],
+      "properties": {
+        "@context": {
+          "type": "array",
+          "items": {"type": "string", "format": "uri"},
+          "description": "JSON-LD context for semantic interoperability.",
+          "default": ["https://aida-spec.dev/contexts/identity/v1"]
+        },
+        "id": {
+          "$ref": "#/$defs/AidaUri",
+          "description": "The agent's AIDA identifier."
+        },
+        "controller": {
+          "$ref": "#/$defs/Controller",
+          "description": "The human or organization that controls this agent."
+        },
+        "publicKey": {
+          "$ref": "#/$defs/Ed25519VerificationKey",
+          "description": "The agent's Ed25519 public key."
+        },
+        "soulHash": {
+          "$ref": "#/$defs/SoulHash",
+          "description": "Integrity fingerprint of the agent's identity files (SOUL.md, AGENTS.md, system prompt, tool definitions). Recomputed on identity refresh."
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/AidaEndpoint"},
+          "description": "Service endpoints where this agent can be reached.",
+          "minItems": 1
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Self-declared high-level capabilities (e.g., 'code-generation', 'file-management', 'web-search'). Not authoritative — capability grants are.",
+          "examples": [["code-generation", "file-management"]]
+        },
+        "verification": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/VerificationProfile"},
+          "description": "Supported verification profiles. At least one required.",
+          "minItems": 1
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of document creation."
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last document update."
+        },
+        "expires": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this document expires. If omitted, the document does not expire."
+        },
+        "proof": {
+          "$ref": "#/$defs/Ed25519Signature",
+          "description": "Self-signature proving possession of the private key corresponding to publicKey."
+        }
+      }
+    },
+
+    "AidaCapabilityGrant": {
+      "description": "Layer 2: An AIDA Capability Grant. Delegates specific capabilities from an issuer to a subject agent. Supports chaining (A→B→C).",
+      "type": "object",
+      "required": ["id", "issuer", "subject", "capabilities", "issuedAt"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uri",
+          "description": "Unique identifier for this grant (URN or URL)."
+        },
+        "issuer": {
+          "$ref": "#/$defs/AidaUri",
+          "description": "The agent (or controller) granting the capabilities."
+        },
+        "subject": {
+          "$ref": "#/$defs/AidaUri",
+          "description": "The agent receiving the capabilities."
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/Capability"},
+          "description": "The delegated capabilities.",
+          "minItems": 1
+        },
+        "delegationChain": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/AidaCapabilityGrant"},
+          "description": "Ordered chain of prior grants. The first entry is the root grant from a controller to the first agent. Enables A→B→C delegation chains."
+        },
+        "previousGrant": {
+          "$ref": "#/$defs/HashLink",
+          "description": "Hash link to the previous grant in the chain. Null for the root grant."
+        },
+        "policyUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "Optional URI to a policy document that governs this grant (e.g., an OPA Rego policy)."
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this grant was issued."
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this grant expires. If omitted, the grant does not expire."
+        },
+        "revocationUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI where revocation status can be checked (e.g., OCSP-style endpoint or on-chain contract)."
+        },
+        "proof": {
+          "$ref": "#/$defs/Ed25519Signature",
+          "description": "Issuer's signature over the grant document."
+        }
+      }
+    },
+
+    "AidaAction": {
+      "description": "An action performed by an agent that is recorded in an attestation receipt.",
+      "type": "object",
+      "required": ["type", "riskLevel", "timestamp"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["tool_call", "delegation", "identity_claim", "key_rotation", "capability_exercise"],
+          "description": "The type of action being attested."
+        },
+        "tool": {
+          "type": "string",
+          "description": "For tool_call actions: the tool name (e.g., 'read_file', 'terminal', 'browser_navigate')."
+        },
+        "toolParameters": {
+          "type": "object",
+          "description": "For tool_call actions: the tool parameters (may be redacted for privacy)."
+        },
+        "toolResult": {
+          "type": "object",
+          "description": "For tool_call actions: the tool result summary (may be redacted for privacy)."
+        },
+        "resourceUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "The resource targeted by this action."
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "The assessed risk level of this action. Determined by the action taxonomy."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the action occurred."
+        },
+        "duration": {
+          "type": "integer",
+          "description": "Action duration in milliseconds.",
+          "minimum": 0
+        }
+      }
+    },
+
+    "AidaAttestationReceipt": {
+      "description": "Layer 3: An AIDA Attestation Receipt. A W3C Verifiable Credential recording an agent action, hash-linked to form a tamper-evident audit trail. ",
+      "type": "object",
+      "required": ["@context", "type", "issuer", "credentialSubject", "proof"],
+      "properties": {
+        "@context": {
+          "type": "array",
+          "items": {"type": "string", "format": "uri"},
+          "description": "W3C VC context. Must include the standard VC context and the AIDA attestation context.",
+          "contains": {"const": "https://www.w3.org/2018/credentials/v1"}
+        },
+        "type": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "W3C VC type. Must include 'VerifiableCredential' and 'AidaAttestationReceipt'.",
+          "contains": {"const": "VerifiableCredential"}
+        },
+        "id": {
+          "type": "string",
+          "format": "uri",
+          "description": "Unique identifier for this receipt."
+        },
+        "issuer": {
+          "$ref": "#/$defs/AidaUri",
+          "description": "The agent that performed the action and signed the receipt."
+        },
+        "issuanceDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this receipt was created."
+        },
+        "credentialSubject": {
+          "type": "object",
+          "required": ["id", "action"],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/AidaUri",
+              "description": "The agent that performed the action (same as issuer)."
+            },
+            "action": {
+              "$ref": "#/$defs/AidaAction",
+              "description": "The action being attested."
+            },
+            "previousReceipt": {
+              "$ref": "#/$defs/HashLink",
+              "description": "SHA-256 hash of the previous receipt in the chain. Null for the first receipt in a session. Creates a tamper-evident hash chain."
+            },
+            "sessionId": {
+              "type": "string",
+              "description": "Identifier for the session this action belongs to."
+            },
+            "grantId": {
+              "type": "string",
+              "format": "uri",
+              "description": "The capability grant under which this action was authorized (if applicable)."
+            }
+          }
+        },
+        "proof": {
+          "$ref": "#/$defs/Ed25519Signature",
+          "description": "The agent's Ed25519 signature over the receipt. The verificationMethod is the agent's AidaUri."
+        }
+      }
+    },
+
+    "AidaReceiptChain": {
+      "description": "A verified chain of attestation receipts. The chain is valid if every receipt's previousReceipt matches the hash of the preceding receipt, and all signatures verify.",
+      "type": "object",
+      "required": ["agent", "receipts", "verified"],
+      "properties": {
+        "agent": {"$ref": "#/$defs/AidaUri"},
+        "receipts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/AidaAttestationReceipt"}
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "True if the entire chain has been cryptographically verified."
+        },
+        "verificationErrors": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "If verified is false, describes which receipts failed verification and why."
+        }
+      }
+    }
+  },
+
+  "properties": {
+    "identityDocument": {"$ref": "#/$defs/AidaIdentityDocument"},
+    "capabilityGrant": {"$ref": "#/$defs/AidaCapabilityGrant"},
+    "attestationReceipt": {"$ref": "#/$defs/AidaAttestationReceipt"},
+    "receiptChain": {"$ref": "#/$defs/AidaReceiptChain"}
+  }
+}

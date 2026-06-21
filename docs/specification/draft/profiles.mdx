@@ -1,0 +1,115 @@
+# Verification Profiles
+
+## Overview
+
+AIDA verification profiles define how AIDA documents (identity, grants, receipts) are verified. Profiles are pluggable — an agent declares which profiles it supports, and verifiers choose the most appropriate one.
+
+## Profile Types
+
+### local
+
+**Mechanism:** Ed25519 signature verification. No external dependencies.
+
+**Trust anchor:** The public key in the identity document itself.
+
+**Use case:** Development, testing, air-gapped environments, local agent-to-agent verification.
+
+**Verification steps:**
+1. Extract the `publicKeyBase58` from the Identity Document
+2. Verify the `proof` signature using that key
+3. If valid, identity is verified
+
+**Limitations:** No binding to a real-world identity. Anyone can generate a keypair and claim any controller. Suitable only when the verifier already trusts the key out-of-band.
+
+### dns
+
+**Mechanism:** DNS TXT record lookup with DNSSEC validation.
+
+**Trust anchor:** The DNS root of trust.
+
+**Use case:** Web-facing agents, enterprise deployments with domain ownership, agents associated with organizations.
+
+**Verification steps:**
+1. Extract the `dns` domain from the identity document's `controller.dns`
+2. Query `_aida.<domain>` TXT record
+3. Validate DNSSEC chain
+4. Verify the returned AIDA URI matches the identity document's `id`
+5. Fetch and verify the Identity Document (Ed25519 signature)
+
+**Requirements:**
+- DNSSEC MUST be enabled and validated
+- The domain MUST match the controller's `dns` field
+- TXT record TTL SHOULD be ≤ 3600 seconds
+
+### ledger
+
+**Mechanism:** On-chain identity registry verification.
+
+**Trust anchor:** Blockchain consensus.
+
+**Use case:** High-value agent interactions, compliance-mandated audit trails, decentralized agent networks.
+
+**Verification steps:**
+1. Identify the blockchain from the `ledger` profile (chainId or chainName)
+2. Call the on-chain verifier function at the specified contract address
+3. The verifier checks the agent's registration, public key, and status
+4. Receive boolean result + optional metadata
+
+**Supported chains (extensible):**
+- Ethereum / Base / OP Mainnet / Arbitrum
+- Solana
+- Stellar (Soroban)
+- Any EVM-compatible chain
+
+**Contract interface (EVM example):**
+```solidity
+interface IAidaRegistry {
+    function verifyIdentity(bytes32 agentId) external view returns (bool valid, uint256 registeredAt, uint256 expiresAt);
+    function getPublicKey(bytes32 agentId) external view returns (bytes32 ed25519Key);
+}
+```
+
+**Limitations:** Requires blockchain access, gas costs for writes, chain-specific integration. Not suitable for offline or low-latency verification.
+
+### zk
+
+**Mechanism:** Zero-knowledge proof verification.
+
+**Trust anchor:** Cryptographic soundness of the ZK proving system.
+
+**Use case:** Privacy-preserving verification, regulatory compliance without full disclosure, selective disclosure of agent attributes.
+
+**Verification steps:**
+1. Agent generates a ZK proof attesting to identity validity
+2. Proof is submitted to the verifier (on-chain or off-chain)
+3. Verifier checks the proof against the published circuit
+4. If valid, identity is verified without seeing the underlying identity document
+
+**Requirements:**
+- `provingSystem`: The ZK proving system (e.g., `groth16`, `plonk`, `ultraplonk`)
+- `circuitHash`: Hash of the circuit used to generate proofs
+- `verifierContract`: (optional) On-chain verifier contract address
+
+
+
+## Profile Selection
+
+Verifiers SHOULD select a profile based on:
+1. **Availability:** Which profiles does the identity document declare?
+2. **Security requirements:** What trust level does the verification context demand?
+3. **Latency requirements:** Can the verifier wait for blockchain confirmation?
+4. **Privacy requirements:** Does the verifier need to see the full identity document?
+
+Multiple profiles MAY be specified. Verifiers MUST check at least one profile and reject if all fail.
+
+## Extending Profiles
+
+AIDA profiles are extensible. New profile types can be added by:
+1. Defining a new `type` string in the `VerificationProfile` enum
+2. Specifying the verification mechanism and trust anchor
+3. Submitting a specification extension via the AIDA governance process
+
+Future profile candidates:
+- **oauth**: OAuth 2.0 / OIDC-based verification
+- **web3**: Wallet-based verification (SIWE — Sign-In With Ethereum)
+- **tee**: Trusted Execution Environment attestation (e.g., AWS Nitro, Intel SGX)

@@ -1,0 +1,136 @@
+# Layer 2: Delegation
+
+## Overview
+
+AIDA Delegation answers the question: **"What is this agent authorized to do?"**
+
+An AIDA Capability Grant is a signed document that delegates specific capabilities from an issuer (a controller or another agent) to a subject agent. Grants support chaining, enabling multi-hop delegation (A→B→C).
+
+## Capability Grant
+
+### Structure
+
+A capability grant contains:
+- **issuer** — the agent or controller granting the capabilities
+- **subject** — the agent receiving the capabilities
+- **capabilities** — an array of `{action, resource, constraints, riskLevel}` tuples
+- **delegation chain** — ordered chain of prior grants (for multi-hop delegation)
+- **expiration** — optional expiry timestamp
+- **revocation URI** — endpoint for checking revocation status
+- **issuer signature** — Ed25519 proof
+
+### Capabilities
+
+Each capability defines:
+
+| Field | Required | Description |
+|---|---|---|
+| `action` | Yes | The permitted action (e.g., `read`, `write`, `execute`, `deploy`, `transfer`) |
+| `resource` | Yes | URI template identifying the resource scope (e.g., `files:/home/alice/*`) |
+| `constraints` | No | Quantitative limits on the capability |
+| `riskLevel` | No | Inherent risk level: `low`, `medium`, `high`, or `critical` |
+
+### Constraints
+
+Constraints are optional quantifiable limits on a capability:
+
+| Constraint | Type | Description |
+|---|---|---|
+| `maxCount` | integer | Maximum number of times this capability can be exercised |
+| `timeWindow` | ISO 8601 duration | Validity window from issuance (e.g., `PT1H`, `P1D`) |
+| `maxValue` | number | Maximum monetary value (for payment-gated capabilities) |
+| `allowedDomains` | string[] | DNS domains this capability is restricted to |
+| `ipAllowlist` | string[] | IPv4 addresses allowed to exercise this capability |
+| `requireConsent` | boolean | If true, human consent is required before each exercise |
+
+### Risk Level
+
+The `riskLevel` field drives consent routing decisions:
+
+| Level | Behavior |
+|---|---|
+| `low` | Auto-approve. No human intervention. |
+| `medium` | Inform. Notify human, but proceed automatically. |
+| `high` | Request. Pause and wait for human approval. |
+| `critical` | Block. Must be pre-authorized by a separate high-trust mechanism. |
+
+
+
+## Delegation Chains
+
+AIDA supports multi-hop delegation chains. Example:
+
+```
+Alice (controller)
+  │
+  │ CapabilityGrant: "read files:/home/alice/*"
+  ▼
+Agent A (assistant)
+  │
+  │ CapabilityGrant: "read files:/home/alice/projects/*"  [subset of A's grant]
+  │ delegationChain: [Alice→A grant]
+  ▼
+Agent B (sub-agent)
+```
+
+Rules for delegation chains:
+1. Each grant in the chain MUST be a valid, unexpired grant
+2. Each grant's issuer MUST be the previous grant's subject
+3. The root grant MUST be issued by the controller
+4. Capabilities MUST narrow (never broaden) at each step — the sub-grant cannot exceed the parent grant's scope
+5. The entire chain MUST be presented for verification
+
+### Claim Narrowing
+
+When a grant is delegated further down the chain, claims MUST narrow:
+- **Action narrowing:** A sub-grant can only permit a subset of the parent's actions
+- **Resource narrowing:** A sub-grant must target a subset of the parent's resource scope
+- **Constraint tightening:** A sub-grant's constraints must be stricter than or equal to the parent's
+- **Risk level:** A sub-grant's risk level must be equal to or higher than the parent's
+
+Example: If Alice grants Agent A `{action: "read", resource: "files:/home/alice/*"}`, Agent A can only delegate `{action: "read", resource: "files:/home/alice/projects/*"}` or narrower.
+
+
+
+## Consent Routing
+
+When a capability has `requireConsent: true` or a high risk level, human consent is required. The consent flow:
+
+1. Agent attempts to exercise a gated capability
+2. System pauses and sends a consent request to the controller
+3. Controller approves, denies, or modifies the request
+4. If approved, the agent proceeds and records the consent in the attestation receipt
+5. If denied, the agent MUST NOT proceed
+
+Consent routing is extensible. Implementations MAY use:
+- **OIDC CIBA** (Client Initiated Backchannel Authentication) — for push-based consent
+- **PACT's matrix model** — trust score × stakes → auto/manual decision
+- **Custom policy engines** — OPA, Cedar, or similar
+
+## Verification
+
+Verifying a capability grant:
+
+1. **Signature check:** Verify the issuer's Ed25519 signature
+2. **Expiration check:** Reject if `expiresAt` is in the past
+3. **Revocation check:** Query the `revocationUri` (if present)
+4. **Chain validation:** If `delegationChain` is present, verify every grant in the chain
+5. **Constraint check:** Ensure the requested action falls within the capability's constraints
+
+If any step fails, the grant MUST be rejected.
+
+## Revocation
+
+Grants MAY be revoked by:
+1. The issuer updating the revocation endpoint
+2. The issuer publishing a revocation certificate
+3. The controller revoking the root grant (cascading revocation)
+
+Revoked grants MUST NOT be accepted. Receipts issued under a now-revoked grant remain valid for audit purposes but do not authorize new actions.
+
+## Security Considerations
+
+- **Replay attacks:** Grants contain `issuedAt` timestamps. Verifiers SHOULD apply a clock skew tolerance of ±30 seconds.
+- **Chain explosion:** Deep delegation chains increase verification cost. Implementations SHOULD set a maximum chain depth (recommended: 5).
+- **Privilege escalation:** Claim narrowing enforcement is critical. Implementations MUST verify that each delegation step narrows (never broadens) capabilities.
+- **Grant confidentiality:** Grants may contain sensitive information about agent capabilities. Implementations SHOULD encrypt grants in transit and at rest.

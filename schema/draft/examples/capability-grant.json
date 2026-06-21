@@ -1,0 +1,36 @@
+{
+  "id": "urn:uuid:grant-abc123-def456-789",
+  "issuer": "aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k",
+  "subject": "aida:DdM8S9ZqAoK3XrlNpG2nCwRsTuVy0Wa",
+  "capabilities": [
+    {
+      "action": "read",
+      "resource": "files:/home/alice/projects/*",
+      "constraints": {
+        "timeWindow": "P7D",
+        "maxCount": 500
+      },
+      "riskLevel": "low"
+    },
+    {
+      "action": "write",
+      "resource": "files:/home/alice/projects/draft/*",
+      "constraints": {
+        "timeWindow": "PT24H",
+        "maxCount": 50,
+        "requireConsent": true
+      },
+      "riskLevel": "medium"
+    }
+  ],
+  "previousGrant": null,
+  "issuedAt": "2026-06-13T12:00:00Z",
+  "expiresAt": "2026-06-20T12:00:00Z",
+  "revocationUri": "https://agents.example.com/aida/revocations",
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "created": "2026-06-13T12:00:00Z",
+    "proofValue": "z5vXBsExampleSignatureValueForCapabilityGrant123456",
+    "verificationMethod": "aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k"
+  }
+}

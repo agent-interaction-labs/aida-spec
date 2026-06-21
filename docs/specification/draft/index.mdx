@@ -1,0 +1,73 @@
+# AIDA Specification — Draft
+
+## Architecture Overview
+
+AIDA (Agent Identity and Delegation Architecture) is a three-layer protocol for AI agent trust. Each layer addresses a distinct question:
+
+| Layer | Question | Artifact |
+|---|---|---|
+| **Identity** | *Who is this agent?* | Identity Document |
+| **Delegation** | *What is it authorized to do?* | Capability Grant |
+| **Attestation** | *What did it actually do?* | Attestation Receipt |
+
+### Protocol Lifecycle
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐
+│ IDENTITY │ ──▶ │DELEGATION│ ──▶ │ATTESTATION│
+│ (setup)  │     │ (runtime)│     │ (audit)   │
+└──────────┘     └──────────┘     └──────────┘
+      │                │                │
+      ▼                ▼                ▼
+ Create keypair    Issue grants     Sign receipts
+ Publish document  Verify at call   Chain for audit
+ Register (DNS)    Enforce limits   Verify trust
+```
+
+1. **Identity Setup:** An agent generates an Ed25519 keypair, creates an Identity Document, and publishes it via DNS or `.well-known/aida`.
+
+2. **Delegation at Runtime:** A controller issues Capability Grants to agents. Agents present grants when exercising capabilities. Verifiers check grant validity and constraints.
+
+3. **Attestation for Audit:** Every agent action produces a signed Attestation Receipt (W3C Verifiable Credential). Receipts are hash-linked into tamper-evident chains.
+
+### Design Principles
+
+1. **Blockchain-agnostic.** Verification profiles (local, DNS, ledger, ZK) are pluggable. No chain is mandatory.
+
+2. **One key type.** Ed25519 only. Simplifies implementation and reduces attack surface.
+
+3. **W3C Verifiable Credentials.** Attestation receipts use the VC standard for interoperability.
+
+4. **Progressive disclosure.** Claim narrowing ensures minimal information exposure.
+
+5. **Composable.** Each layer can be used independently. An agent can use AIDA identity without AIDA delegation. A verifier can check AIDA receipts without implementing identity documents.
+
+### Verification Profiles
+
+AIDA supports multiple verification strategies:
+
+| Profile | Mechanism | Trust Anchor | Use Case |
+|---|---|---|---|
+| **local** | Ed25519 signature check | None (offline) | Dev, testing, air-gapped |
+| **dns** | DNS TXT `_aida` + DNSSEC | DNS root | Web agents, enterprises |
+| **ledger** | On-chain registry | Blockchain consensus | High-value, compliance |
+| **zk** | ZK proof verification | Cryptographic | Privacy-preserving |
+
+Multiple profiles can be specified. At least one must succeed for a document to be considered verified.
+
+### Relationship to Other Protocols
+
+- **AIP** (Agent Interaction Protocol): AIP messages carry AIDA identity claims (`aida:` URIs in tool call metadata). AIDA receipts can attest to AIP interactions.
+
+- **MCP** (Model Context Protocol): AIDA agents expose identity verification and receipt queries as MCP tools.
+
+- **AID** (Agent Identity & Discovery): AIDA references AID's DNS TXT record format for discovery. AIDA identity documents are discoverable via AID.
+
+- **W3C Verifiable Credentials**: AIDA attestation receipts are W3C VCs. AIDA identity documents use JSON-LD with VC-compatible proof signatures.
+
+### Conventions
+
+- **MUST** / **SHOULD** / **MAY** are used as defined in RFC 2119.
+- Timestamps follow ISO 8601 with timezone (`2026-06-13T14:23:45Z`).
+- Base58 encoding uses the Bitcoin alphabet (no `0`, `O`, `I`, `l`).
+- SHA-256 hashes are hex-encoded with `sha256:` prefix.

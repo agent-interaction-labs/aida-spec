@@ -1,0 +1,34 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://aida-spec.dev/contexts/attestation/v1"
+  ],
+  "type": ["VerifiableCredential", "AidaAttestationReceipt"],
+  "id": "urn:uuid:receipt-xyz789-abc123-456",
+  "issuer": "aida:DdM8S9ZqAoK3XrlNpG2nCwRsTuVy0Wa",
+  "issuanceDate": "2026-06-13T14:23:45Z",
+  "credentialSubject": {
+    "id": "aida:DdM8S9ZqAoK3XrlNpG2nCwRsTuVy0Wa",
+    "action": {
+      "type": "tool_call",
+      "tool": "read_file",
+      "toolParameters": {
+        "path": "/home/alice/projects/report.md",
+        "limit": 100
+      },
+      "resourceUri": "file:/home/alice/projects/report.md",
+      "riskLevel": "low",
+      "timestamp": "2026-06-13T14:23:42Z",
+      "duration": 45
+    },
+    "previousReceipt": "sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+    "sessionId": "session-20260613-001",
+    "grantId": "urn:uuid:grant-abc123-def456-789"
+  },
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "created": "2026-06-13T14:23:45Z",
+    "proofValue": "z9wYxExampleSignatureValueForAttestationReceipt7890",
+    "verificationMethod": "aida:DdM8S9ZqAoK3XrlNpG2nCwRsTuVy0Wa"
+  }
+}

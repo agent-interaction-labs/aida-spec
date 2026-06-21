@@ -1,0 +1,94 @@
+# Schema Reference
+
+The canonical AIDA schema is defined as a JSON Schema 2020-12 document at `schema/draft/schema.json`. TypeScript type definitions are derived from the schema at `schema/draft/schema.ts`.
+
+## Schema Architecture
+
+The schema defines four top-level document types under `$defs`:
+
+| Definition | Layer | Description |
+|---|---|---|
+| `AidaIdentityDocument` | 1 — Identity | Agent identity document with Ed25519 key, controller binding, soul hash |
+| `AidaCapabilityGrant` | 2 — Delegation | Capability grant with typed constraints, delegation chains |
+| `AidaAttestationReceipt` | 3 — Attestation | W3C Verifiable Credential for agent action attestation |
+| `AidaReceiptChain` | 3 — Attestation | Verified chain of attestation receipts |
+
+## Shared Primitives
+
+| Primitive | Type | Description |
+|---|---|---|
+| `AidaUri` | `string` (pattern) | `aida:<base58-ed25519-pubkey>` |
+| `Ed25519VerificationKey` | `object` | Ed25519 public key |
+| `Ed25519Signature` | `object` | Ed25519 cryptographic proof |
+| `SoulHash` | `string` (pattern) | `sha256:<hex>` integrity fingerprint |
+| `HashLink` | `string` (pattern) | `sha256:<hex>` chain link |
+| `Controller` | `object` | Human/org controller binding |
+| `AidaEndpoint` | `object` | Service endpoint with protocol negotiation |
+| `VerificationProfile` | `object` | Pluggable verification profile (local, dns, ledger, zk) |
+| `Capability` | `object` | `{action, resource, constraints, riskLevel}` tuple |
+| `CapabilityConstraint` | `object` | Quantitative limits on capabilities |
+| `AidaAction` | `object` | Agent action recorded in receipt |
+
+## Validation
+
+### Using ajv (JavaScript/TypeScript)
+
+```typescript
+import Ajv from 'ajv';
+import schema from './schema/draft/schema.json';
+
+const ajv = new Ajv();
+const validate = ajv.compile(schema);
+
+// Validate identity document
+const identityDoc = { /* ... */ };
+if (!validate({ identityDocument: identityDoc })) {
+  console.error(validate.errors);
+}
+
+// Validate capability grant
+const grant = { /* ... */ };
+if (!validate({ capabilityGrant: grant })) {
+  console.error(validate.errors);
+}
+
+// Validate attestation receipt
+const receipt = { /* ... */ };
+if (!validate({ attestationReceipt: receipt })) {
+  console.error(validate.errors);
+}
+```
+
+### Using jsonschema (Python)
+
+```python
+import json
+from jsonschema import validate, ValidationError
+
+with open('schema/draft/schema.json') as f:
+    schema = json.load(f)
+
+try:
+    validate(instance={'identityDocument': identity_doc}, schema=schema)
+except ValidationError as e:
+    print(f'Validation error: {e.message}')
+```
+
+## Versioning
+
+The schema version follows the `draft/` convention during development. When AIDA reaches v1.0:
+
+1. Schema moves to `schema/2026-XX-XX/schema.json` (date-stamped directory)
+2. `schema/draft/` continues as the development version
+3. TypeScript types are regenerated from the dated schema
+4. Specification docs move to `docs/specification/2026-XX-XX/`
+
+## Schema Extension
+
+The schema MAY be extended by implementations:
+
+- **Additional properties:** The schema allows `additionalProperties` on objects where noted. Implementations MAY add custom fields.
+- **New profiles:** Add new `VerificationProfile.type` values by extending the enum.
+- **New action types:** Add new `ActionType` values for domain-specific actions.
+
+Extensions that gain broad adoption MAY be proposed for inclusion in the canonical schema via the AIDA governance process.

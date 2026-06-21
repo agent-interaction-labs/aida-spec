@@ -1,0 +1,46 @@
+{
+  "@context": ["https://aida-spec.dev/contexts/identity/v1"],
+  "id": "aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k",
+  "controller": {
+    "email": "alice@example.com",
+    "dns": "example.com"
+  },
+  "publicKey": {
+    "type": "Ed25519VerificationKey2020",
+    "publicKeyBase58": "CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k"
+  },
+  "soulHash": "sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+  "endpoints": [
+    {
+      "url": "https://agents.example.com/alice-assistant/mcp",
+      "protocol": "mcp",
+      "metadata": {
+        "serverName": "alice-assistant",
+        "serverVersion": "1.2.0"
+      }
+    }
+  ],
+  "capabilities": ["code-generation", "file-management", "web-search"],
+  "verification": [
+    {
+      "type": "local",
+      "local": {
+        "publicKeyBase58": "CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k"
+      }
+    },
+    {
+      "type": "dns",
+      "dns": {
+        "domain": "example.com",
+        "requireDnssec": true
+      }
+    }
+  ],
+  "created": "2026-06-13T00:00:00Z",
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "created": "2026-06-13T00:00:00Z",
+    "proofValue": "z3uTAiGzExampleSignatureValuePlaceholder123456789",
+    "verificationMethod": "aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k"
+  }
+}

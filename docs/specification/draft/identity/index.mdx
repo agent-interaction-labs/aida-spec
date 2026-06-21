@@ -1,0 +1,143 @@
+# Layer 1: Identity
+
+## Overview
+
+AIDA Identity answers the question: **"Who is this agent?"**
+
+An AIDA Identity Document is a self-signed JSON-LD document that binds an Ed25519 public key to a controller (human or organization) and declares the agent's service endpoints, capabilities, and verification methods.
+
+## Identity Document
+
+### Identifier
+
+Every agent has an AIDA URI:
+
+```
+aida:<base58-encoded-ed25519-public-key>
+```
+
+Examples:
+- `aida:CcL7R8YxPZnJ2YqkMoF1mBvQrWtLxU9k`
+- `aida:DdM8S9ZqAoK3XrlNpG2nCwRsTuVy0Wa`
+
+The URI is derived from the agent's Ed25519 public key — no central registry required. Agents are self-sovereign.
+
+### Controller Binding
+
+An agent MUST declare at least one controller binding. The controller is the human or organization that owns the agent.
+
+Supported bindings:
+- **DID** — W3C Decentralized Identifier
+- **Email** — Email address (for human controllers)
+- **DNS** — Domain name (for organizational controllers, enables DNSSEC verification)
+- **OAuth** — OAuth 2.0 / OIDC issuer URL (for delegated identity)
+
+Multiple bindings MAY be specified. All provided bindings MUST be valid.
+
+### Soul Hash
+
+The `soulHash` is a SHA-256 integrity fingerprint of the agent's identity files:
+
+```
+soulHash = SHA-256(sort(hash(file1), hash(file2), ...))
+```
+
+Where each file hash is `SHA-256(file_contents)`. The files hashed typically include:
+- `SOUL.md` — agent personality and behavioral constraints
+- `AGENTS.md` — agent configuration and capabilities
+- System prompt
+- Tool definitions
+
+The soul hash MUST be recomputed whenever any identity file changes. A mismatch between the claimed soul hash and computed hash indicates tampering (soul-rewriting attack).
+
+This concept is inspired by the Sigil protocol's soul hash mechanism.
+
+### Service Endpoints
+
+An agent MAY declare service endpoints where it can be reached. Each endpoint specifies:
+- `url` — the endpoint URL
+- `protocol` — the protocol spoken (MCP, AIP, A2A, OpenAPI, gRPC, GraphQL, WebSocket)
+- `metadata` — optional protocol-specific metadata
+
+Endpoints are protocol-agnostic. A single agent can expose multiple protocols. This follows the AID discovery model.
+
+### Verification Profiles
+
+The `verification` array declares how this identity document can be verified:
+
+- **local**: Ed25519 signature verification. No external dependencies.
+- **dns**: DNS `_aida` TXT record lookup with DNSSEC validation.
+- **ledger**: On-chain identity registry verification.
+- **zk**: Zero-knowledge proof verification.
+
+At least one verification profile MUST be specified. Verifiers MUST check at least one profile and reject the document if all profiles fail.
+
+## Key Management
+
+### Key Generation
+
+Agents MUST generate Ed25519 keypairs using a cryptographically secure random number generator. The private key MUST never leave the agent's secure enclave (or equivalent trusted execution environment).
+
+The public key is base58-encoded to form the AIDA URI.
+
+### Key Rotation
+
+Agents MAY rotate keys by:
+1. Generating a new Ed25519 keypair
+2. Creating a new Identity Document with the new public key
+3. Signing the new document with the OLD key (proving continuity)
+4. Publishing the updated document via DNS or `.well-known/aida`
+
+After rotation, the old key MUST be revoked. Receipts signed by the old key remain verifiable via the key rotation history.
+
+### Key Revocation
+
+An agent MAY revoke its identity by:
+1. Publishing a revocation document signed by the controller
+2. Removing the DNS `_aida` record
+3. Calling the on-chain revocation function (if using a ledger profile)
+
+Revocation is permanent. Revoked identities MUST NOT be accepted by verifiers.
+
+## Discovery
+
+Agents are discovered via two mechanisms:
+
+1. **DNS TXT record** at `_aida.<domain>` — returns the AIDA URI and optional endpoint URL. Follows the AID protocol's discovery format.
+   ```
+   _aida.example.com TXT → v=aida1;u=https://agents.example.com/alice-assistant
+   ```
+
+2. **Well-known endpoint** at `/.well-known/aida` — returns the full Identity Document as JSON. Used when DNS is unavailable or for HTTPS-anchored trust.
+   ```
+   GET https://agents.example.com/.well-known/aida
+   → {"id": "aida:CcL7...", ...}
+   ```
+
+## Security Considerations
+
+- **Private key protection:** The Ed25519 private key is the root of trust. Compromise of the private key means complete identity compromise. Implementations SHOULD use hardware security modules (HSMs) or trusted execution environments (TEEs).
+
+- **Replay attacks:** Identity documents contain a `created` timestamp. Verifiers SHOULD reject documents with timestamps too far in the past or future (recommended: ±5 minutes without NTP, ±1 minute with NTP).
+
+- **DNS poisoning:** DNS-based verification MUST require DNSSEC. Without DNSSEC, an attacker can spoof the `_aida` TXT record and substitute a malicious identity document.
+
+- **Soul hash tampering:** Verifiers SHOULD recompute the soul hash and compare against the claimed value. A mismatch indicates the agent's identity files have been modified.
+
+## Implementation Notes
+
+### Reference Implementation
+
+A minimal AIDA identity implementation requires:
+1. Ed25519 keypair generation (`@noble/ed25519` or libsodium)
+2. Identity Document construction and signing
+3. DNS `_aida` record publication (or `.well-known/aida` endpoint)
+4. Identity Document verification (signature + soul hash + timestamps)
+
+### Inspiration
+
+AIDA Identity draws from:
+- **Sigil protocol** (Kayo Souza): Ed25519 keypairs, soul hashes, `.well-known` discovery
+- **AID protocol** (agentcommunity.org): DNS `_agent` TXT records, protocol-agnostic endpoints
+- **W3C DID Core**: Self-sovereign identity model, controller concept
+- **PACT IETF** (Valverde): Host/session identity binding, Ed25519 JWTs
