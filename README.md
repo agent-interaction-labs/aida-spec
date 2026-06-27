@@ -208,3 +208,7 @@ Apache-2.0 — see [LICENSE](./LICENSE).
 ## Acknowledgments
 
 The AIDA protocol specification builds upon foundational concepts across the decentralized identity, cryptography, and autonomous systems communities. We acknowledge the contributions and prior research across the broader ecosystem—including early explorations in agent identity, cryptographic capability attestation, and zero-knowledge proofs—that helped shape the principles of secure agent verification.
+
+---
+
+**Built by [Agent Interaction Labs](https://github.com/agent-interaction-labs)** — opening the web to agentic interaction.
