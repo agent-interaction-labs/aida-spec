@@ -130,9 +130,9 @@ Signature-Input: sig1=("@method" "@path" "@authority" "content-digest" "aida-age
 Signature: sig1=:z3uTAiGz...:
 ```
 
-**Agent side** (`@aida/agent`):
+**Agent side** (`@aida/attest`):
 ```typescript
-import { createAgent, signRequest } from '@aida/agent';
+import { createAgent, signRequest } from '@aida/attest';
 const agent = await createAgent({ controller: { email: 'alice@example.com' } });
 const req = await signRequest('https://api.example.com/data', { method: 'GET', agent });
 ```
