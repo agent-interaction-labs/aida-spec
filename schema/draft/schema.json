@@ -77,7 +77,7 @@
     },
 
     "SoulHash": {
-      "description": "A deterministic integrity fingerprint of the agent's identity files. Computed as SHA-256 of sorted file hashes. Detects soul-rewriting attacks .",
+      "description": "A deterministic integrity fingerprint of the agent's identity files. Computed as SHA-256 of sorted file hashes. Detects soul-rewriting attacks.",
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$",
       "examples": ["sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"]
@@ -118,7 +118,7 @@
     },
 
     "CapabilityConstraint": {
-      "description": "Constraints on a delegated capability. ",
+      "description": "Constraints on a delegated capability.",
       "type": "object",
       "properties": {
         "maxCount": {
@@ -221,7 +221,7 @@
         },
         "zk": {
           "type": "object",
-          "description": "Zero-knowledge verification. The verifier receives a ZK proof without seeing the underlying data. ",
+          "description": "Zero-knowledge verification. The verifier receives a ZK proof without seeing the underlying data.",
           "properties": {
             "provingSystem": {"type": "string", "examples": ["groth16", "plonk", "ultraplonk"]},
             "circuitHash": {"type": "string"},
@@ -404,7 +404,7 @@
     },
 
     "AidaAttestationReceipt": {
-      "description": "Layer 3: An AIDA Attestation Receipt. A W3C Verifiable Credential recording an agent action, hash-linked to form a tamper-evident audit trail. ",
+      "description": "Layer 3: An AIDA Attestation Receipt. A W3C Verifiable Credential recording an agent action, hash-linked to form a tamper-evident audit trail.",
       "type": "object",
       "required": ["@context", "type", "issuer", "credentialSubject", "proof"],
       "properties": {

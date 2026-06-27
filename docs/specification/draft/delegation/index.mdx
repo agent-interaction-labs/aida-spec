@@ -54,8 +54,6 @@ The `riskLevel` field drives consent routing decisions:
 | `high` | Request. Pause and wait for human approval. |
 | `critical` | Block. Must be pre-authorized by a separate high-trust mechanism. |
 
-
-
 ## Delegation Chains
 
 AIDA supports multi-hop delegation chains. Example:
@@ -90,8 +88,6 @@ When a grant is delegated further down the chain, claims MUST narrow:
 
 Example: If Alice grants Agent A `{action: "read", resource: "files:/home/alice/*"}`, Agent A can only delegate `{action: "read", resource: "files:/home/alice/projects/*"}` or narrower.
 
-
-
 ## Consent Routing
 
 When a capability has `requireConsent: true` or a high risk level, human consent is required. The consent flow:
@@ -104,7 +100,7 @@ When a capability has `requireConsent: true` or a high risk level, human consent
 
 Consent routing is extensible. Implementations MAY use:
 - **OIDC CIBA** (Client Initiated Backchannel Authentication) — for push-based consent
-- **PACT's matrix model** — trust score × stakes → auto/manual decision
+- **Risk-Stakes Matrix** — dynamic trust scoring × stakes → auto/manual decision
 - **Custom policy engines** — OPA, Cedar, or similar
 
 ## Verification

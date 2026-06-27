@@ -237,10 +237,9 @@ Verifying every request involves DNS resolution and cryptographic signature veri
 |---|---|
 | **RFC 9421** (HTTP Message Signatures) | AIDA uses this for request signing. AIDA is a profile, not a replacement. |
 | **RFC 7517** (JSON Web Key) | Identity documents MAY include JWK representations of Ed25519 keys for compatibility. |
-| **AID** (draft-nemethi-aid-*) | AID defines DNS `_agent` TXT records for endpoint discovery. AIDA uses the same pattern at `_aida` and is compatible. |
-| **PACT** (draft-valverde-oauth-pact-*) | PACT defines OAuth 2.1 delegation for agents. AIDA's identity layer is complementary — PACT can reference AIDA identities in its grants. |
 | **W3C Verifiable Credentials** | AIDA identity documents use JSON-LD with Ed25519 proofs, compatible with the VC data model. |
-| **MCP** (Model Context Protocol) | AIDA identities can be used as the authentication layer for MCP's HTTP transport. |
+| **W3C DID Core** | AIDA aligns with W3C Decentralized Identifier specifications for controller binding and key verification. |
+| **RFC 8615** (Well-Known URIs) | AIDA establishes `/.well-known/aida` endpoints for standardized, TLS-anchored identity document retrieval. |
 
 ### 10. Reference Implementation
 

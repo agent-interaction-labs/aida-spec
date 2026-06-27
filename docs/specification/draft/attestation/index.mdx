@@ -103,15 +103,13 @@ This enables interoperability with existing VC verifiers, wallets, and registrie
 
 ## Attestation Storage
 
-### Local Storage (Obsigna-inspired)
+### Local Storage
 
 For local, offline attestation:
 - Receipts stored in SQLite database
 - Daemon process holds the signing key
 - AF_UNIX socket for IPC between agent and daemon
 - Query interface: `list_receipts(session_id)`, `verify_chain(session_id)`
-
-
 
 ### Ledger Storage (optional)
 
@@ -122,7 +120,7 @@ For on-chain attestation:
 
 ### Zero-Knowledge Attestation (optional)
 
-For privacy-preserving attestation (inspired by AEGIS ZK):
+For privacy-preserving attestation:
 - Attestation receipts are proved via ZK circuits
 - Verifiers receive ZK proofs without seeing the underlying action data
 - On-chain verifier contract checks proofs without revealing tool calls
@@ -132,7 +130,7 @@ For privacy-preserving attestation (inspired by AEGIS ZK):
 
 AIDA core defines the attestation receipt format but does not mandate a trust scoring algorithm. Implementations MAY add trust scoring as an extension:
 
-**PACT-inspired behavioral model:**
+**Behavioral Trust Model:**
 - Approved action → trust +2
 - Edited action → trust +1
 - Rejected action → trust -5

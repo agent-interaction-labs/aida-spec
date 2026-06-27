@@ -108,15 +108,14 @@ Verifier wants to verify agent@example.com:
 
 Once an agent's identity is verified, the verifier inspects the `endpoints` array in the Identity Document to determine which protocols the agent supports and at which URLs.
 
-The verifier selects the most appropriate protocol based on its own capabilities and the agent's endpoints. This protocol-agnostic approach follows the AID discovery model.
+The verifier selects the most appropriate protocol based on its own capabilities and the agent's endpoints.
 
-## Relationship to AID
+## Legacy Interoperability
 
-AIDA discovery is designed to be compatible with the AID (Agent Identity & Discovery) protocol by agentcommunity.org:
+AIDA discovery is designed to be fully interoperable with early DNS discovery mechanisms:
 
-- AIDA uses the same DNS TXT record pattern (`_aida` vs AID's `_agent`)
-- AIDA supports the same `v=` and `u=` key format
-- AIDA adds the `.well-known/aida` endpoint as a fallback
-- AIDA identity documents contain the same endpoint/protocol negotiation model
+- AIDA uses the dedicated DNS TXT record pattern `_aida` to prevent namespace collisions with legacy `_agent` records.
+- AIDA maintains the familiar `v=` and `u=` key-value syntax for seamless integration into existing resolvers.
+- AIDA introduces the `.well-known/aida` endpoint as a robust, TLS-anchored fallback mechanism.
 
-An agent CAN support both AID and AIDA discovery simultaneously by publishing both `_agent` and `_aida` DNS records.
+An agent CAN support both legacy discovery and AIDA discovery simultaneously by publishing both `_agent` and `_aida` DNS records.

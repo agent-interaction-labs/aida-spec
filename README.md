@@ -4,8 +4,7 @@
 
 AIDA defines how AI agents prove who they are, what they're authorized to do, and that they did it correctly — in a standardized, verifiable, blockchain-agnostic way.
 
-> AIDA is to agent identity what MCP is to agent tools.  
-> Where AIXA defines how agents *interact*, AIDA defines how agents *prove*.
+> Establishing zero-trust cryptographic provenance, non-repudiation, and transparent auditability for autonomous AI agents on the web.
 
 ---
 
@@ -26,33 +25,33 @@ Every integration hand-wires its own identity solution (API keys, service accoun
 ## Three-Layer Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  AIDA Protocol                    │
-│                                                   │
-│  LAYER 1: IDENTITY                                │
-│  ┌─────────────────────────────────────────────┐ │
-│  │ aida:<ed25519-pubkey>                        │ │
-│  │ Identity Document (JSON-LD, signed)          │ │
-│  │ Soul Hash (integrity fingerprint)            │ │
-│  │ Key rotation & revocation                    │ │
-│  └─────────────────────────────────────────────┘ │
-│                                                   │
-│  LAYER 2: DELEGATION                              │
-│  ┌─────────────────────────────────────────────┐ │
-│  │ Capability Grants (typed, constrained)       │ │
-│  │ Delegation Chains (A → B → C)                │ │
-│  │ Consent Routing (risk-graduated HITL)         │ │
-│  │ Claim Narrowing (minimal disclosure)         │ │
-│  └─────────────────────────────────────────────┘ │
-│                                                   │
-│  LAYER 3: ATTESTATION                             │
-│  ┌─────────────────────────────────────────────┐ │
-│  │ Action Receipts (W3C Verifiable Credentials) │ │
-│  │ Hash-Chained Audit Trail                     │ │
-│  │ Extensible Trust Scoring                     │ │
-│  │ Verification Profiles (local, DNS, ZK, …)   │ │
-│  └─────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│                   AIDA Protocol                    │
+│                                                    │
+│  LAYER 1: IDENTITY                                 │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ aida:<ed25519-pubkey>                        │  │
+│  │ Identity Document (JSON-LD, signed)          │  │
+│  │ Soul Hash (integrity fingerprint)            │  │
+│  │ Key rotation & revocation                    │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                    │
+│  LAYER 2: DELEGATION                               │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Capability Grants (typed, constrained)       │  │
+│  │ Delegation Chains (A → B → C)                │  │
+│  │ Consent Routing (risk-graduated HITL)        │  │
+│  │ Claim Narrowing (minimal disclosure)         │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                    │
+│  LAYER 3: ATTESTATION                              │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Action Receipts (W3C Verifiable Credentials) │  │
+│  │ Hash-Chained Audit Trail                     │  │
+│  │ Extensible Trust Scoring                     │  │
+│  │ Verification Profiles (local, DNS, ZK, ...)  │  │
+│  └──────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────┘
 ```
 
 ---

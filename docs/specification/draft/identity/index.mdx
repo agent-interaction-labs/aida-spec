@@ -50,8 +50,6 @@ Where each file hash is `SHA-256(file_contents)`. The files hashed typically inc
 
 The soul hash MUST be recomputed whenever any identity file changes. A mismatch between the claimed soul hash and computed hash indicates tampering (soul-rewriting attack).
 
-This concept is inspired by the Sigil protocol's soul hash mechanism.
-
 ### Service Endpoints
 
 An agent MAY declare service endpoints where it can be reached. Each endpoint specifies:
@@ -59,7 +57,7 @@ An agent MAY declare service endpoints where it can be reached. Each endpoint sp
 - `protocol` — the protocol spoken (MCP, AIXA, A2A, OpenAPI, gRPC, GraphQL, WebSocket)
 - `metadata` — optional protocol-specific metadata
 
-Endpoints are protocol-agnostic. A single agent can expose multiple protocols. This follows the AID discovery model.
+Endpoints are protocol-agnostic. A single agent can expose multiple protocols.
 
 ### Verification Profiles
 
@@ -103,7 +101,7 @@ Revocation is permanent. Revoked identities MUST NOT be accepted by verifiers.
 
 Agents are discovered via two mechanisms:
 
-1. **DNS TXT record** at `_aida.<domain>` — returns the AIDA URI and optional endpoint URL. Follows the AID protocol's discovery format.
+1. **DNS TXT record** at `_aida.<domain>` — returns the AIDA URI and optional endpoint URL.
    ```
    _aida.example.com TXT → v=aida1;u=https://agents.example.com/alice-assistant
    ```
@@ -134,10 +132,9 @@ A minimal AIDA identity implementation requires:
 3. DNS `_aida` record publication (or `.well-known/aida` endpoint)
 4. Identity Document verification (signature + soul hash + timestamps)
 
-### Inspiration
+### Design Alignment
 
-AIDA Identity draws from:
-- **Sigil protocol** (Kayo Souza): Ed25519 keypairs, soul hashes, `.well-known` discovery
-- **AID protocol** (agentcommunity.org): DNS `_agent` TXT records, protocol-agnostic endpoints
-- **W3C DID Core**: Self-sovereign identity model, controller concept
-- **PACT IETF** (Valverde): Host/session identity binding, Ed25519 JWTs
+AIDA Identity aligns with established industry principles:
+- **W3C DID Core**: Self-sovereign identity model and controller binding architecture.
+- **Ed25519 Cryptography**: High-speed, deterministic key generation and verification.
+- **RFC 8615**: Well-known URI structures for transparent web discovery.
