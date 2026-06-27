@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aida-spec.dev/schema/draft/schema.json",
-  "title": "Agent Identity and Delegation Architecture (AIDA)",
-  "description": "Canonical JSON Schema for the Agent Identity and Delegation Architecture. Defines identity documents, capability grants, and attestation receipts for AI agents.",
+  "title": "Agent Identity & Delegation Attestation (AIDA)",
+  "description": "Canonical JSON Schema for the Agent Identity & Delegation Attestation. Defines identity documents, capability grants, and attestation receipts for AI agents.",
   "type": "object",
 
   "$defs": {
@@ -65,7 +65,7 @@
         },
         "protocol": {
           "type": "string",
-          "enum": ["mcp", "aip", "a2a", "openapi", "grpc", "graphql", "websocket"],
+          "enum": ["mcp", "aixa", "a2a", "openapi", "grpc", "graphql", "websocket"],
           "description": "The protocol spoken at this endpoint. References AID's protocol negotiation model."
         },
         "metadata": {

@@ -1,11 +1,11 @@
-# AIDA — Agent Identity and Delegation Architecture
+# AIDA — Agent Identity & Delegation Attestation
 
 **The open protocol for agent identity, delegation, and attestation.**
 
 AIDA defines how AI agents prove who they are, what they're authorized to do, and that they did it correctly — in a standardized, verifiable, blockchain-agnostic way.
 
 > AIDA is to agent identity what MCP is to agent tools.  
-> Where AIP defines how agents *interact*, AIDA defines how agents *prove*.
+> Where AIXA defines how agents *interact*, AIDA defines how agents *prove*.
 
 ---
 
@@ -188,11 +188,11 @@ aida-spec/
 
 ---
 
-## Relationship to AIP and MCP
+## Relationship to AIXA and MCP
 
 | Protocol | Purpose | AIDA Relationship |
 |---|---|---|
-| **AIP** (Agent Interaction Protocol) | How agents interact (tool calls, HITL, streaming) | AIP messages carry `aida:` identity claims for verification |
+| **AIXA** (Agent Interaction & eXecution Agreement) | How agents interact (tool calls, HITL, streaming) | AIXA messages carry `aida:` identity claims for verification |
 | **MCP** (Model Context Protocol) | How agents access tools and resources | AIDA agents expose identity/verification as MCP tools |
 | **AIDA** | Agent identity, delegation, attestation | The trust layer beneath interactions |
 

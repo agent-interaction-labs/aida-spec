@@ -1,5 +1,5 @@
 /**
- * AIDA — Agent Identity and Delegation Architecture
+ * AIDA — Agent Identity & Delegation Attestation
  * TypeScript type definitions derived from the canonical JSON Schema.
  *
  * Generated from: schema/draft/schema.json
@@ -40,7 +40,7 @@ export type IsoDuration = string;
 
 export type AgentProtocol =
   | "mcp"
-  | "aip"
+  | "aixa"
   | "a2a"
   | "openapi"
   | "grpc"
